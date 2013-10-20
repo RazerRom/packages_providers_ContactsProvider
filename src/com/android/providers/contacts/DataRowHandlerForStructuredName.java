@@ -15,17 +15,25 @@
  */
 package com.android.providers.contacts;
 
+import android.annotation.ChaosLab;
+import android.annotation.ChaosLab.Classification;
+import android.content.ContentResolver;
 import android.content.ContentValues;
 import android.content.Context;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
+import android.provider.ContactsContract;
 import android.provider.ContactsContract.CommonDataKinds.StructuredName;
 import android.provider.ContactsContract.FullNameStyle;
 import android.provider.ContactsContract.PhoneticNameStyle;
+import android.provider.Settings;
 import android.text.TextUtils;
 
 import com.android.providers.contacts.SearchIndexManager.IndexBuilder;
 import com.android.providers.contacts.aggregation.ContactAggregator;
+
+import com.android.internal.util.cyanide.identicons.Identicon;
+import com.android.internal.util.cyanide.identicons.IdenticonFactory;
 
 /**
  * Handler for email address data rows.
@@ -35,15 +43,21 @@ public class DataRowHandlerForStructuredName extends DataRowHandler {
     private final NameLookupBuilder mNameLookupBuilder;
     private final StringBuilder mSb = new StringBuilder();
 
+    @ChaosLab(name="QuickStats", classification=Classification.NEW_FIELD)
+    private final ContentResolver mResolver;
+
+    @ChaosLab(name="QuickStats", classification=Classification.CHANGE_CODE)
     public DataRowHandlerForStructuredName(Context context, ContactsDatabaseHelper dbHelper,
             ContactAggregator aggregator, NameSplitter splitter,
             NameLookupBuilder nameLookupBuilder) {
         super(context, dbHelper, aggregator, StructuredName.CONTENT_ITEM_TYPE);
         mSplitter = splitter;
         mNameLookupBuilder = nameLookupBuilder;
+        mResolver = context.getContentResolver();
     }
 
     @Override
+    @ChaosLab(name="QuickStats", classification=Classification.CHANGE_CODE)
     public long insert(SQLiteDatabase db, TransactionContext txContext, long rawContactId,
             ContentValues values) {
         fixStructuredNameComponents(values, values);
@@ -57,6 +71,9 @@ public class DataRowHandlerForStructuredName extends DataRowHandler {
                         ? mSplitter.getAdjustedFullNameStyle(fullNameStyle)
                         : FullNameStyle.UNDEFINED);
         fixRawContactDisplayName(db, txContext, rawContactId);
+        if (Settings.System.getInt(mResolver, Settings.System.IDENTICONS_ENABLED, 0) == 1) {
+            insertIdenticon(db, txContext, rawContactId, name);
+        }
         triggerAggregation(txContext, rawContactId);
         return dataId;
     }
@@ -215,6 +232,21 @@ public class DataRowHandlerForStructuredName extends DataRowHandler {
             builder.appendName(phoneticName);
             mNameLookupBuilder.appendNameShorthandLookup(builder, phoneticName,
                     phoneticNameStyle);
+        }
+    }
+
+    @ChaosLab(name="QuickStats", classification=Classification.NEW_METHOD)
+    private void insertIdenticon(SQLiteDatabase db, TransactionContext txContext,
+                                 long rawContactId, String name) {
+        if (!TextUtils.isEmpty(name)) {
+            ContentValues values = new ContentValues();
+            final Identicon identicon = IdenticonFactory.makeIdenticon(
+                    Settings.System.getInt(mResolver, Settings.System.IDENTICONS_STYLE, 0));
+            values.put("mimetype_id", 10);
+            values.put(ContactsDatabaseHelper.NameLookupColumns.RAW_CONTACT_ID, rawContactId);
+            values.put(ContactsContract.CommonDataKinds.Photo.PHOTO,
+                    identicon.generateIdenticonByteArray(name));
+            super.insert(db, txContext, rawContactId, values);
         }
     }
 }
