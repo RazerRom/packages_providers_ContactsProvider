@@ -32,8 +32,8 @@ import android.text.TextUtils;
 import com.android.providers.contacts.SearchIndexManager.IndexBuilder;
 import com.android.providers.contacts.aggregation.ContactAggregator;
 
-import com.android.internal.util.cyanide.identicons.Identicon;
-import com.android.internal.util.cyanide.identicons.IdenticonFactory;
+import com.android.internal.util.bliss.identicons.Identicon;
+import com.android.internal.util.bliss.identicons.IdenticonFactory;
 
 /**
  * Handler for email address data rows.
