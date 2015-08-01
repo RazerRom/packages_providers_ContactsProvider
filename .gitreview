@@ -1,6 +1,0 @@
-[gerrit]
-host=review.blissroms.com
-port=29418
-project=android_packages_providers_ContactsProvider.git
-defaultbranch=lp5.1
-
